@@ -1,4 +1,4 @@
-use crate::common::{Dimension, Worker};
+use crate::common::{Image, Worker};
 use lazy_static::lazy_static;
 use std::sync::mpsc::{channel, Receiver, Sender};
 
@@ -10,12 +10,6 @@ lazy_static! {
 
 const OUT_ENDPOINT: u8 = 0x01;
 const IN_ENDPOINT: u8 = 0x82;
-
-#[derive(Debug)]
-pub struct Image {
-    dimension: Dimension,
-    data: Box<[u8]>,
-}
 
 pub struct FingerprintCapture {
     pub receiver: Receiver<Image>,
@@ -72,5 +66,6 @@ impl FingerprintCapture {
         fp_handle.reset().expect("Could not reset device");
 
         // TODO: Pull the images by sequence and push them to send_channel
+        todo!()
     }
 }
