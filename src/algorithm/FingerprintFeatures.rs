@@ -1,4 +1,4 @@
-use crate::common::{Dimension, Point, Image};
+use crate::common::{Dimension, Image, Point};
 
 #[derive(Copy, Clone, Debug)]
 pub enum MinutiaKind {
@@ -28,8 +28,6 @@ impl FingerprintFeatures {
     }
 
     fn extractFeatures(image: &Image) -> Box<[Minutia]> {
-        
-
         todo!()
     }
 }

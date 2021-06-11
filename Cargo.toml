@@ -7,5 +7,6 @@ edition = "2018"
 
 [dependencies]
 flume = "0.10.5"
-lazy_static = "1.4.0"
+# lazy_static = "1.4.0"
 rusb = "0.8"
+hex-literal = "0.3.1"

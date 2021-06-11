@@ -1,5 +1,5 @@
-use std::thread;
 use flume::Sender;
+use std::thread;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Coordinate {
@@ -10,7 +10,6 @@ pub struct Coordinate {
 pub type Point = Coordinate;
 pub type Dimension = Coordinate;
 
-
 // Represents an Image sent by the sensor
 
 #[derive(Clone, Debug)]
@@ -18,7 +17,6 @@ pub struct Image {
     pub dimension: Dimension,
     pub data: Box<[u8]>,
 }
-
 
 // A single threaded worker, for internal purpose.
 
