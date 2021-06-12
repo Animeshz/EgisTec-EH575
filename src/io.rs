@@ -6,7 +6,7 @@ use std::time::Duration;
 const OUT_ENDPOINT: u8 = 0x01;
 const IN_ENDPOINT: u8 = 0x82;
 
-const INIT_SEQUENCE: [&[u8]; 18] = [
+pub const INIT_SEQUENCE: [&[u8]; 18] = [
     &hex!("45 47 49 53 60 00 fc"),
     &hex!("45 47 49 53 60 01 fc"),
     &hex!("45 47 49 53 60 40 fc"),
@@ -101,10 +101,10 @@ impl FingerprintCapture {
 
         for i in 0..INIT_SEQUENCE.len() {
             fp_handle
-                .write_bulk(OUT_ENDPOINT, INIT_SEQUENCE[i], Duration::ZERO)
+                .write_bulk(OUT_ENDPOINT, INIT_SEQUENCE[i], Duration::from_nanos(0))
                 .expect("Out transfer error");
             fp_handle
-                .read_bulk(IN_ENDPOINT, &mut self.image_holder, Duration::ZERO)
+                .read_bulk(IN_ENDPOINT, &mut self.image_holder, Duration::from_nanos(0))
                 .expect("In transfer error");
         }
 
@@ -129,10 +129,10 @@ impl Iterator for FingerprintCapture {
 
         for i in 0..REPEAT_SEQUENCE.len() {
             fp_handle
-                .write_bulk(OUT_ENDPOINT, REPEAT_SEQUENCE[i], Duration::ZERO)
+                .write_bulk(OUT_ENDPOINT, REPEAT_SEQUENCE[i], Duration::from_nanos(0))
                 .expect("Out transfer error");
             fp_handle
-                .read_bulk(IN_ENDPOINT, &mut self.image_holder, Duration::ZERO)
+                .read_bulk(IN_ENDPOINT, &mut self.image_holder, Duration::from_nanos(0))
                 .expect("In transfer error");
         }
 

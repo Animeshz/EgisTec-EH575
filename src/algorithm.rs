@@ -27,6 +27,12 @@ impl FingerprintFeatures {
         }
     }
 
+    // pub fn is_good(): Result {
+
+    // }
+
+    // Result.toFingerprintFeatures if true
+
     fn extractFeatures(image: &Image) -> Box<[Minutia]> {
         todo!()
     }
