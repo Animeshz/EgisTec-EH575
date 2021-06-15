@@ -7,9 +7,10 @@ edition = "2018"
 
 [dependencies]
 flume = "0.10.5"
-# lazy_static = "1.4.0"
-rusb = "0.8"
 hex-literal = "0.3.1"
+lazy_static = "1.4.0"
+ordered-float = "2.0"
+rusb = "0.8"
 # shrust = "0.0.7"
 # dialoguer = "0.8.0"
 # https://towardsdatascience.com/awesome-rust-powered-command-line-utilities-b5359c38692

@@ -1,5 +1,6 @@
-use crate::common::{Dimension, Image};
+use crate::common::{GreyscaleImage};
 use hex_literal::hex;
+use lazy_static::lazy_static;
 use rusb::{Device, DeviceHandle, GlobalContext};
 use std::time::Duration;
 
@@ -39,10 +40,19 @@ const REPEAT_SEQUENCE: [&[u8]; 9] = [
     &hex!("45 47 49 53 64 14 ec"),
 ];
 
+lazy_static! {
+    static ref DEVICE: Device<GlobalContext> = rusb::devices()
+        .unwrap()
+        .iter()
+        .find(|device| {
+            let device_desc = device.device_descriptor().unwrap();
+            device_desc.vendor_id() == 0x1c7a && device_desc.product_id() == 0x575
+        })
+        .expect("EgisTec EH575 (1c7a:0575) is not detected on the system!");
+}
+
 /// FingerprintCapture is used to poll fingerprint images from the scanner
 pub struct FingerprintCapture {
-    /// Device is reference
-    device: Device<GlobalContext>,
     device_handle: Option<DeviceHandle<GlobalContext>>,
     first: bool,
     image_holder: [u8; 5356],
@@ -51,22 +61,14 @@ pub struct FingerprintCapture {
 impl FingerprintCapture {
     /// Creates a new FingerprintCapture object
     ///
-    /// The device is identified at this step.
+    /// The device is identified at this step if it didn't earlier.
     ///
     /// The device is first opened when first Image is requested by `Iterator::next` on this.
     /// For subsequent `Iterator::next` calls, the opened device is polled for next images.
     pub fn new() -> Self {
-        let device = rusb::devices()
-            .unwrap()
-            .iter()
-            .find(|device| {
-                let device_desc = device.device_descriptor().unwrap();
-                device_desc.vendor_id() == 0x1c7a && device_desc.product_id() == 0x575
-            })
-            .expect("EgisTec EH575 (1c7a:0575) is not detected on the system!");
+        &DEVICE;
 
         FingerprintCapture {
-            device,
             device_handle: None,
             first: true,
             image_holder: [0; 5356],
@@ -76,10 +78,10 @@ impl FingerprintCapture {
     /// The first call to `Iterator::next` delegates here.
     /// This opens the device and returns first Image
     /// This also sets the `device_handle` for further image polls.
-    fn first(&mut self) -> Option<Image> {
+    fn first(&mut self) -> Option<GreyscaleImage> {
         self.first = false;
 
-        let mut fp_handle = match self.device.open() {
+        let mut fp_handle = match DEVICE.open() {
             Ok(v) => v,
             Err(e) => panic!("Cannot open EgisTec EH575 (1c7a:0575). Reason: {}", e),
         };
@@ -110,15 +112,12 @@ impl FingerprintCapture {
 
         self.device_handle = Some(fp_handle);
 
-        Some(Image {
-            dimension: Dimension { x: 103, y: 52 },
-            data: Box::new(self.image_holder.clone()),
-        })
+        Some(GreyscaleImage::new(Box::new(self.image_holder.clone())))
     }
 }
 
 impl Iterator for FingerprintCapture {
-    type Item = Image;
+    type Item = GreyscaleImage;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.first {
@@ -136,9 +135,6 @@ impl Iterator for FingerprintCapture {
                 .expect("In transfer error");
         }
 
-        Some(Image {
-            dimension: Dimension { x: 103, y: 52 },
-            data: Box::new(self.image_holder.clone()),
-        })
+        Some(GreyscaleImage::new(Box::new(self.image_holder.clone())))
     }
 }
