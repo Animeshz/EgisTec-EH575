@@ -1,6 +1,7 @@
 use flume::Sender;
 use std::cmp::max;
 use std::fmt;
+use std::fmt::Debug;
 use std::ops;
 use std::ops::Index;
 use std::ops::IndexMut;
@@ -26,66 +27,66 @@ pub type Dimension = Coordinate;
 const IMAGE_DIMENSION: Dimension = Dimension { x: 103, y: 52 };
 
 #[derive(Clone, Debug)]
-pub struct Matrix<T: Copy> {
+pub struct Matrix<T: Copy + Debug> {
     pub dimension: Dimension,
     pub data: Box<[T]>,
 }
 
-impl<T: Copy> Index<Coordinate> for Matrix<T> {
+impl<T: Copy + Debug> Index<Coordinate> for Matrix<T> {
     type Output = T;
 
     #[inline]
     fn index(&self, coordinate: Coordinate) -> &Self::Output {
-        if coordinate.x >= IMAGE_DIMENSION.x || coordinate.y >= IMAGE_DIMENSION.y {
-            panic!("Index out of bounds: the dimensions of image is {} but the requested coordinate is {}", self.dimension, coordinate);
+        if coordinate.x >= self.dimension.x || coordinate.y >= self.dimension.y {
+            panic!("Index out of bounds: the dimensions of matrix is {} but the requested coordinate is {}", self.dimension, coordinate);
         }
 
-        let idx = coordinate.x as usize + coordinate.y as usize * IMAGE_DIMENSION.y as usize;
+        let idx = coordinate.x as usize + coordinate.y as usize * self.dimension.x as usize;
         &self.data[idx]
     }
 }
 
-impl<T: Copy> IndexMut<Coordinate> for Matrix<T> {
+impl<T: Copy + Debug> IndexMut<Coordinate> for Matrix<T> {
     #[inline]
     fn index_mut(&mut self, coordinate: Coordinate) -> &mut Self::Output {
-        if coordinate.x >= IMAGE_DIMENSION.x || coordinate.y >= IMAGE_DIMENSION.y {
-            panic!("Index out of bounds: the dimensions of image is {} but the requested coordinate is {}", self.dimension, coordinate);
+        if coordinate.x >= self.dimension.x || coordinate.y >= self.dimension.y {
+            panic!("Index out of bounds: the dimensions of matrix is {} but the requested coordinate is {}", self.dimension, coordinate);
         }
 
-        let idx = coordinate.x as usize + coordinate.y as usize * IMAGE_DIMENSION.y as usize;
+        let idx = coordinate.x as usize + coordinate.y as usize * self.dimension.x as usize;
         &mut self.data[idx]
     }
 }
 
-impl<T: Copy> ops::Index<ops::RangeInclusive<Coordinate>> for Matrix<T> {
+impl<T: Copy + Debug> ops::Index<ops::RangeInclusive<Coordinate>> for Matrix<T> {
     type Output = [T];
 
     #[inline]
     fn index(&self, index: ops::RangeInclusive<Coordinate>) -> &Self::Output {
         let start = index.start();
         let end = index.end();
-        if max(start.x, end.x) >= IMAGE_DIMENSION.x || max(start.y, end.y) >= IMAGE_DIMENSION.y {
-            panic!("Index out of bounds: the dimensions of image is {} but the requested coordinates needs from {} to {}", self.dimension, start, end);
+        if max(start.x, end.x) >= self.dimension.x || max(start.y, end.y) >= self.dimension.y {
+            panic!("Index out of bounds: the dimensions of matrix is {} but the requested coordinates needs from {} to {}", self.dimension, start, end);
         }
 
-        let start_idx = start.x as usize + start.y as usize * IMAGE_DIMENSION.y as usize;
-        let end_idx = end.x as usize + end.y as usize * IMAGE_DIMENSION.y as usize;
+        let start_idx = start.x as usize + start.y as usize * self.dimension.x as usize;
+        let end_idx = end.x as usize + end.y as usize * self.dimension.x as usize;
 
         &self.data[start_idx..=end_idx]
     }
 }
 
-impl<T: Copy> ops::IndexMut<ops::RangeInclusive<Coordinate>> for Matrix<T> {
+impl<T: Copy + Debug> ops::IndexMut<ops::RangeInclusive<Coordinate>> for Matrix<T> {
     #[inline]
     fn index_mut(&mut self, index: ops::RangeInclusive<Coordinate>) -> &mut Self::Output {
         let start = index.start();
         let end = index.end();
-        if max(start.x, end.x) >= IMAGE_DIMENSION.x || max(start.y, end.y) >= IMAGE_DIMENSION.y {
-            panic!("Index out of bounds: the dimensions of image is {} but the requested coordinates needs from {} to {}", self.dimension, start, end);
+        if max(start.x, end.x) >= self.dimension.x || max(start.y, end.y) >= self.dimension.y {
+            panic!("Index out of bounds: the dimensions of matrix is {} but the requested coordinates needs from {} to {}", self.dimension, start, end);
         }
 
-        let start_idx = start.x as usize + start.y as usize * IMAGE_DIMENSION.y as usize;
-        let end_idx = end.x as usize + end.y as usize * IMAGE_DIMENSION.y as usize;
+        let start_idx = start.x as usize + start.y as usize * self.dimension.x as usize;
+        let end_idx = end.x as usize + end.y as usize * self.dimension.x as usize;
 
         &mut self.data[start_idx..=end_idx]
     }

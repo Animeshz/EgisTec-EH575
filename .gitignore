@@ -2,6 +2,3 @@
 .idea/
 target/
 burst_capture/
-
-# Temporary resource ignore.
-resources/
