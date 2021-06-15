@@ -1,4 +1,3 @@
-use std::cmp::min;
 use ordered_float::OrderedFloat;
 
 use crate::{common::{Dimension, GreyscaleImage, Point}, util::noise};
@@ -41,6 +40,12 @@ impl FingerprintFeatures {
         filtered_images.sort_by_key(|&img| OrderedFloat(noise(img)));
         let best_image: &GreyscaleImage = &filtered_images[0];
 
+        // Will most probably run single time as long as there's no empty blocks (13x13)
+        for i in 0..filtered_images.len() {
+            
+
+
+        }
         
 
         todo!()

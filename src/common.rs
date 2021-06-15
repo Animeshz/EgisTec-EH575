@@ -21,13 +21,22 @@ pub struct Matrix<T: Copy> {
 }
 
 impl<T: Copy> Matrix<T> {
-    pub fn value_at(&self, coordinate: Coordinate) -> Option<T> {
+    pub fn value_ref_at(&self, coordinate: Coordinate) -> Option<&T> {
         if coordinate.x >= IMAGE_DIMENSION.x || coordinate.y >= IMAGE_DIMENSION.y {
             return None;
         }
 
         let idx = coordinate.x as usize + coordinate.y as usize * IMAGE_DIMENSION.y as usize;
-        Some(self.data[idx])
+        Some(&self.data[idx])
+    }
+
+    pub fn mut_value_ref_at(&mut self, coordinate: Coordinate) -> Option<&mut T> {
+        if coordinate.x >= IMAGE_DIMENSION.x || coordinate.y >= IMAGE_DIMENSION.y {
+            return None;
+        }
+
+        let idx = coordinate.x as usize + coordinate.y as usize * IMAGE_DIMENSION.y as usize;
+        Some(&mut self.data[idx])
     }
 }
 
