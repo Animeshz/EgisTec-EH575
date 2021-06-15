@@ -1,4 +1,4 @@
 pub mod algorithm;
 pub mod common;
 pub mod io;
-mod util;
+pub mod util;

@@ -5,7 +5,7 @@ use lazy_static::lazy_static;
 use crate::common::{Coordinate, Dimension, GreyscaleImage, Matrix};
 
 lazy_static! {
-    static ref LAPLACIAN_OPERATOR: Matrix<i8> = Matrix {
+    pub static ref LAPLACIAN_OPERATOR: Matrix<i8> = Matrix {
         dimension: Dimension { x: 3, y: 3 },
         data: Box::new([1, -2, 1, -2, 4, -2, 1, -2, 1]),
     };
@@ -25,7 +25,7 @@ pub fn noise(image: &GreyscaleImage) -> f64 {
 
 /// Convolve `image` with the `filter` provided
 /// output[x,y] = ΣΣᵢⱼ image[x-i,y-j] * filter[i,j]
-fn convolve2d_full(image: &GreyscaleImage, filter: &Matrix<i8>) -> Matrix<i32> {
+pub fn convolve2d_full(image: &GreyscaleImage, filter: &Matrix<i8>) -> Matrix<i32> {
     let dimension = Dimension {
         x: image.dimension.x + filter.dimension.x - 1,
         y: image.dimension.y + filter.dimension.y - 1,
@@ -56,48 +56,4 @@ fn convolve2d_full(image: &GreyscaleImage, filter: &Matrix<i8>) -> Matrix<i32> {
     }
 
     output
-}
-
-#[cfg(test)]
-mod util_test {
-    use super::{convolve2d_full, noise};
-    use crate::common::{Dimension, GreyscaleImage, Matrix};
-    use std::{fs::File};
-    use tiff::decoder::{Decoder, DecodingResult};
-
-    macro_rules! assert_delta {
-        ($x:expr, $y:expr, $d:expr) => {
-            if !($x - $y < $d || $y - $x < $d) { panic!(); }
-        }
-    }
-
-    #[test]
-    fn convolve2d_full_test() {
-        let a = Matrix::<u8> {
-            dimension: Dimension { x: 3, y: 2 },
-            data: Box::new([1, 2, 3, 3, 4, 5]),
-        };
-        let b = Matrix::<i8> {
-            dimension: Dimension { x: 3, y: 2 },
-            data: Box::new([2, 3, 4, 4, 5, 6]),
-        };
-        let result = Matrix::<i32> {
-            dimension: Dimension { x: 5, y: 3 },
-            data: Box::new([2, 7, 16, 17, 12, 10, 30, 62, 58, 38, 12, 31, 58, 49, 30]),
-        };
-        let calculated = convolve2d_full(&a, &b);
-        assert_eq!(calculated.data, result.data);
-    }
-
-    #[test]
-    fn noise_test() {
-        let file: File = File::open("resources/test/register/1.tiff").unwrap();
-        let mut decoder = Decoder::new(file).unwrap();
-        if let DecodingResult::U8(image_data) = decoder.read_image().unwrap() {
-            let image = GreyscaleImage::new(image_data.into_boxed_slice());
-
-            let noise = noise(&image);
-            assert_delta!(noise, 5.066, 0.01);
-        }
-    }
 }
