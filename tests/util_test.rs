@@ -1,14 +1,17 @@
 #[cfg(test)]
 mod util_test {
-    use egistec_eh575::util::{convolve2d_full, noise};
     use egistec_eh575::common::{Dimension, GreyscaleImage, Matrix};
-    use std::{fs::File};
+    use egistec_eh575::util::{convolve2d_full};
+    use egistec_eh575::algorithm::algorithm;
+    use std::fs::File;
     use tiff::decoder::{Decoder, DecodingResult};
 
     macro_rules! assert_delta {
         ($x:expr, $y:expr, $d:expr) => {
-            if !($x - $y < $d || $y - $x < $d) { panic!(); }
-        }
+            if !($x - $y < $d || $y - $x < $d) {
+                panic!();
+            }
+        };
     }
 
     #[test]
@@ -36,7 +39,7 @@ mod util_test {
         if let DecodingResult::U8(image_data) = decoder.read_image().unwrap() {
             let image = GreyscaleImage::new(image_data.into_boxed_slice());
 
-            let noise = noise(&image);
+            let noise = algorithm::noise(&image);
             assert_delta!(noise, 5.066, 0.01);
         }
     }

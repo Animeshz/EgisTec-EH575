@@ -13,14 +13,37 @@ pub struct Coordinate {
     pub y: u8,
 }
 
+impl ops::Add<Coordinate> for Coordinate {
+    type Output = Coordinate;
+
+    fn add(self, another: Coordinate) -> Self::Output {
+        Coordinate {
+            x: self.x + another.x,
+            y: self.y + another.y,
+        }
+    }
+}
+
+impl ops::Sub<Coordinate> for Coordinate {
+    type Output = Coordinate;
+
+    fn sub(self, another: Coordinate) -> Self::Output {
+        Coordinate {
+            x: self.x - another.x,
+            y: self.y - another.y,
+        }
+    }
+}
+
 impl fmt::Display for Coordinate {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Dimension {{ x: {}, y: {} }}", self.x, self.y)
+        write!(f, "Coordinate {{ x: {}, y: {} }}", self.x, self.y)
     }
 }
 
 pub type Point = Coordinate;
 pub type Dimension = Coordinate;
+// pub type IntRectangle = Coordinate;
 
 // Represents a Matrix of T, and GreyscaleImage is [`Matrix<u8>`] sent by the sensor
 
@@ -30,6 +53,26 @@ const IMAGE_DIMENSION: Dimension = Dimension { x: 103, y: 52 };
 pub struct Matrix<T: Copy + Debug> {
     pub dimension: Dimension,
     pub data: Box<[T]>,
+}
+
+impl<T: Copy + Debug> Matrix<T> {
+    pub fn transpose(&self) -> Matrix<T> {
+        let mut transpose_data = Vec::with_capacity(self.data.len());
+        for i in 0..self.dimension.x {
+            for j in 0..self.dimension.y {
+                transpose_data.push(self.data[i as usize + j as usize * self.dimension.x as usize]);
+            }
+        }
+
+        Matrix {
+            dimension: self.dimension,
+            data: transpose_data.into_boxed_slice(),
+        }
+    }
+
+    // pub fn block_view(&self, rectangle: IntRectangle) -> {
+
+    // }
 }
 
 impl<T: Copy + Debug> Index<Coordinate> for Matrix<T> {

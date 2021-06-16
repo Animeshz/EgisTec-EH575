@@ -1,4 +1,4 @@
-use crate::common::{GreyscaleImage};
+use crate::common::GreyscaleImage;
 use hex_literal::hex;
 use lazy_static::lazy_static;
 use rusb::{Device, DeviceHandle, GlobalContext};

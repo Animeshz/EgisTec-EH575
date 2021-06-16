@@ -1,39 +1,24 @@
-use std::f64;
+use num::{cast::AsPrimitive, Integer, Num};
 
-use lazy_static::lazy_static;
+use crate::common::{Coordinate, Dimension, Matrix};
+use std::{fmt::Debug, iter::Iterator};
 
-use crate::common::{Coordinate, Dimension, GreyscaleImage, Matrix};
-
-lazy_static! {
-    pub static ref LAPLACIAN_OPERATOR: Matrix<i8> = Matrix {
-        dimension: Dimension { x: 3, y: 3 },
-        data: Box::new([1, -2, 1, -2, 4, -2, 1, -2, 1]),
-    };
-}
-
-/// Calculates standard variance of noise in the given Image
-/// Ref: https://stackoverflow.com/a/25436112/11377112
-pub fn noise(image: &GreyscaleImage) -> f64 {
-    let supressed_image = convolve2d_full(image, &LAPLACIAN_OPERATOR);
-
-    let sum: u32 = supressed_image.data.iter().map(|&x| x.abs() as u32).sum();
-    let sigma = sum as f64 * (0.5 * f64::consts::PI).sqrt()
-        / (6 * (image.dimension.x - 2) as u32 * (image.dimension.y - 2) as u32) as f64;
-
-    sigma
-}
-
-/// Convolve `image` with the `filter` provided
-/// output[x,y] = ΣΣᵢⱼ image[x-i,y-j] * filter[i,j]
-pub fn convolve2d_full(image: &GreyscaleImage, filter: &Matrix<i8>) -> Matrix<i32> {
+/// Convolve `matrix` with the `filter` provided fully, i.e. size(output) = size(matrix) + size(filter) - 1
+/// output[x,y] = ΣΣᵢⱼ matrix[x-i,y-j] * filter[i,j]
+pub fn convolve2d_full<T, U, V>(matrix: &Matrix<T>, filter: &Matrix<U>) -> Matrix<V>
+where
+    T: Copy + Debug + Num + AsPrimitive<V>,
+    U: Copy + Debug + Num + AsPrimitive<V>,
+    V: Copy + Debug + Num + 'static + std::fmt::Display,
+{
     let dimension = Dimension {
-        x: image.dimension.x + filter.dimension.x - 1,
-        y: image.dimension.y + filter.dimension.y - 1,
+        x: matrix.dimension.x + filter.dimension.x - 1,
+        y: matrix.dimension.y + filter.dimension.y - 1,
     };
 
-    let mut output = Matrix::<i32> {
+    let mut output = Matrix::<V> {
         dimension,
-        data: vec![0; dimension.x as usize * dimension.y as usize].into_boxed_slice(),
+        data: vec![num::zero(); dimension.x as usize * dimension.y as usize].into_boxed_slice(),
     };
 
     for y in 0..dimension.y {
@@ -41,11 +26,11 @@ pub fn convolve2d_full(image: &GreyscaleImage, filter: &Matrix<i8>) -> Matrix<i3
             let sum = &mut output[Coordinate { x, y }];
 
             for j in 0..filter.dimension.y {
-                if !(j > y || y - j >= image.dimension.y) {
+                if !(j > y || y - j >= matrix.dimension.y) {
                     *sum = (0..filter.dimension.x).fold(*sum, |acc, i| {
-                        if !(i > x || x - i >= image.dimension.x) {
-                            acc + image[Coordinate { x: x - i, y: y - j }] as i32
-                                * filter[Coordinate { x: i, y: j }] as i32
+                        if !(i > x || x - i >= matrix.dimension.x) {
+                            acc + matrix[Coordinate { x: x - i, y: y - j }].as_()
+                                * filter[Coordinate { x: i, y: j }].as_()
                         } else {
                             acc
                         }
@@ -56,4 +41,85 @@ pub fn convolve2d_full(image: &GreyscaleImage, filter: &Matrix<i8>) -> Matrix<i3
     }
 
     output
+}
+
+/// Convolve `matrix` with the `filter` provided
+/// output[x,y] = ΣΣᵢⱼ matrix[x-i,y-j] * filter[i,j]
+pub fn convolve2d_same_sized<T, U, V>(matrix: &Matrix<T>, filter: &Matrix<U>) -> Matrix<V>
+where
+    T: Copy + Debug + Num + AsPrimitive<V>,
+    U: Copy + Debug + Num + AsPrimitive<V>,
+    V: Copy + Debug + Num + 'static + std::fmt::Display,
+    u8: AsPrimitive<V>,
+{
+    let mut output = Matrix::<V> {
+        dimension: matrix.dimension,
+        data: vec![num::zero(); matrix.data.len()].into_boxed_slice(),
+    };
+
+    for y in 0..matrix.dimension.y {
+        for x in 0..matrix.dimension.x {
+            let sum = &mut output[Coordinate { x, y }];
+
+            for j in 0..filter.dimension.y {
+                if !(j > y || y - j >= matrix.dimension.y) {
+                    *sum = (0..filter.dimension.x).fold(*sum, |acc, i| {
+                        if !(i > x || x - i >= matrix.dimension.x) {
+                            acc + matrix[Coordinate { x: x - i, y: y - j }].as_()
+                                * filter[Coordinate { x: i, y: j }].as_()
+                        } else {
+                            acc
+                        }
+                    });
+                }
+            }
+        }
+    }
+
+    output
+}
+
+#[inline]
+pub fn mean<'a, T, V>(data: impl Iterator<Item = &'a T>) -> V
+where
+    T: Num + AsPrimitive<u64> + 'static,
+    V: Copy + 'static,
+    f64: AsPrimitive<V>,
+{
+    let size = data.size_hint().0;
+    if size == 0 {
+        panic!("Size must be non-zero in order to calculate mean");
+    }
+
+    let sum: u64 = data.map(|&x| x.as_()).sum();
+    (sum as f64 / size as f64).as_()
+}
+
+#[inline]
+pub fn variance<'a, T, V>(data: impl Iterator<Item = &'a T>, mean: f64) -> V
+where
+    T: Num + AsPrimitive<f64> + 'static,
+    V: Copy + 'static,
+    f64: AsPrimitive<V>,
+{
+    let size = data.size_hint().0;
+    if size == 0 {
+        panic!("Size must be non-zero in order to calculate variance");
+    }
+
+    let sum_of_deviations: f64 = data
+        .map(|&x| x.as_())
+        .map(|x| x - mean)
+        .map(|x| x * x)
+        .sum();
+    (sum_of_deviations / size as f64).as_()
+}
+
+#[inline(always)]
+pub fn ceiling_division<T>(num: T, den: T) -> T
+where
+    T: Copy + Integer + 'static,
+    bool: AsPrimitive<T>,
+{
+    num / den + (num % den != num::zero()).as_()
 }
