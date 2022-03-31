@@ -1,0 +1,944 @@
+diff --git a/data/autosuspend.hwdb b/data/autosuspend.hwdb
+index d55ed3e..7a801d2 100644
+--- a/data/autosuspend.hwdb
++++ b/data/autosuspend.hwdb
+@@ -77,6 +77,10 @@ usb:v1C7Ap0571*
+  ID_AUTOSUSPEND=1
+  ID_PERSIST=0
+ 
++# Supported by libfprint driver egis0575
++usb:v1C7Ap0575*
++  ID_AUTOSUSPEND=1
++
+ # Supported by libfprint driver elan
+ usb:v04F3p0903*
+ usb:v04F3p0907*
+@@ -309,7 +313,6 @@ usb:v147Ep1002*
+ usb:v1491p0088*
+ usb:v16D1p1027*
+ usb:v1C7Ap0300*
+-usb:v1C7Ap0575*
+ usb:v1C7Ap0576*
+ usb:v27C6p5042*
+ usb:v27C6p5110*
+diff --git a/libfprint/drivers/egis0575.c b/libfprint/drivers/egis0575.c
+new file mode 100644
+index 0000000..99c5781
+--- /dev/null
++++ b/libfprint/drivers/egis0575.c
+@@ -0,0 +1,422 @@
++/*
++ * Egis Technology Inc. (aka. LighTuning) 0575 driver for libfprint
++ * Copyright (C) 2021 Animesh Sahu <animeshsahu19@yahoo.com>
++ *
++ * This library is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ *
++ * This library is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with this library; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
++ */
++
++#define FP_COMPONENT "egis0575"
++
++#include "egis0575.h"
++#include "drivers_api.h"
++
++/*
++ * ==================== Basic definitions ====================
++ */
++
++/* Struct to share data across lifecycle */
++struct _FpDeviceEgis0575
++{
++  FpImageDevice parent;
++
++  gboolean      running;
++  gboolean      stop;
++
++  GSList       *strips;
++  gsize         strips_len;
++
++  const Packet *pkt_array;
++  int           pkt_array_len;
++  int           current_index;
++};
++
++enum sm_states {
++  SM_INIT,
++  SM_START,
++  SM_REQ,
++  SM_RESP,
++  SM_PROCESS_IMG,
++  SM_DONE,
++  SM_STATES_NUM
++};
++
++G_DECLARE_FINAL_TYPE (FpDeviceEgis0575, fpi_device_egis0575, FPI, DEVICE_EGIS0575, FpImageDevice);
++G_DEFINE_TYPE (FpDeviceEgis0575, fpi_device_egis0575, FP_TYPE_IMAGE_DEVICE);
++
++static unsigned char
++egis_get_pixel (struct fpi_frame_asmbl_ctx *ctx, struct fpi_frame *frame, unsigned int x, unsigned int y)
++{
++  return frame->data[x + y * ctx->frame_width];
++}
++
++static struct fpi_frame_asmbl_ctx assembling_ctx = {
++  .frame_width = EGIS0575_IMGWIDTH,
++  .frame_height = EGIS0575_RFMGHEIGHT,
++  .image_width = (EGIS0575_IMGWIDTH / 3) * 4,   /* PIXMAN expects width/stride to be multiple of 4 */
++  .get_pixel = egis_get_pixel,
++};
++
++/*
++ * ==================== Data processing ====================
++ */
++
++#define MIN(a, b) (((a) < (b)) ? (a) : (b))
++
++static gboolean
++valid_data (FpiUsbTransfer *transfer)
++{
++  int sum = 0;
++
++  for (size_t i = 0; i < MIN (100, transfer->actual_length); i++)
++    sum |= transfer->buffer[i];
++  return sum;
++}
++
++static gboolean
++finger_present (FpiUsbTransfer *transfer)
++{
++  unsigned char *buffer = transfer->buffer;
++  int length = transfer->actual_length;
++  double mean = 0;
++  double variance = 0;
++
++  for (size_t i = 0; i < length; i++)
++    mean += buffer[i];
++  mean /= length;
++
++  for (size_t i = 0; i < length; i++)
++    variance += (buffer[i] - mean) * (buffer[i] - mean);
++  variance /= length;
++
++  return variance > EGIS0575_MIN_SD * EGIS0575_MIN_SD;
++}
++
++static void
++save_img (FpiUsbTransfer *transfer, FpDevice *dev)
++{
++  FpDeviceEgis0575 *self = FPI_DEVICE_EGIS0575 (dev);
++
++  if (!valid_data (transfer))
++    {
++      GError *error = fpi_device_error_new_msg (FP_DEVICE_ERROR_DATA_INVALID, "All zero data received!");
++      fpi_ssm_mark_failed (transfer->ssm, error);
++      g_error_free (error);
++      goto CLEANUP;
++    }
++
++  if (self->stop)
++    {
++      fpi_ssm_jump_to_state (transfer->ssm, SM_DONE);
++CLEANUP:
++      g_slist_free_full (self->strips, g_free);
++      self->strips_len = 0;
++      self->strips = NULL;
++      return;
++    }
++
++  if (!finger_present (transfer))
++    {
++      if (self->strips_len > 0)
++        goto START_PROCESSING;
++    }
++  else
++    {
++      struct fpi_frame *stripe = g_malloc (EGIS0575_IMGWIDTH * EGIS0575_RFMGHEIGHT + sizeof (struct fpi_frame));
++      stripe->delta_x = 0;
++      stripe->delta_y = 0;
++      memcpy (stripe->data, (transfer->buffer) + (EGIS0575_IMGWIDTH * EGIS0575_RFMDIS), EGIS0575_IMGWIDTH * EGIS0575_RFMGHEIGHT);
++      self->strips = g_slist_prepend (self->strips, stripe);
++      self->strips_len += 1;
++    }
++
++  if (self->strips_len < EGIS0575_CONSECUTIVE_CAPTURES)
++    fpi_ssm_jump_to_state (transfer->ssm, SM_REQ);
++  else
++START_PROCESSING:
++    fpi_ssm_next_state (transfer->ssm);
++}
++
++static void
++process_imgs (FpiSsm *ssm, FpDevice *dev)
++{
++  FpImageDevice *img_self = FP_IMAGE_DEVICE (dev);
++  FpDeviceEgis0575 *self = FPI_DEVICE_EGIS0575 (dev);
++
++  FpiImageDeviceState state;
++
++  fpi_image_device_report_finger_status (img_self, TRUE);
++
++  g_object_get (dev, "fpi-image-device-state", &state, NULL);
++  if (state == FPI_IMAGE_DEVICE_STATE_CAPTURE)
++    {
++      if (!self->stop)
++        {
++          g_autoptr(FpImage) img = NULL;
++
++          self->strips = g_slist_reverse (self->strips);
++          fpi_do_movement_estimation (&assembling_ctx, self->strips);
++
++          img = fpi_assemble_frames (&assembling_ctx, self->strips);
++          img->flags |= (FPI_IMAGE_COLORS_INVERTED | FPI_IMAGE_PARTIAL);
++
++          FpImage *resizedImage = fpi_image_resize (img, EGIS0575_RESIZE, EGIS0575_RESIZE);
++
++          fpi_image_device_image_captured (img_self, resizedImage);
++        }
++
++      g_slist_free_full (self->strips, g_free);
++      self->strips = NULL;
++      self->strips_len = 0;
++
++      fpi_image_device_report_finger_status (img_self, FALSE);
++      fpi_ssm_next_state (ssm);
++    }
++}
++
++/*
++ * ==================== IO ====================
++ */
++
++static void
++resp_cb (FpiUsbTransfer *transfer, FpDevice *dev, gpointer user_data, GError *error)
++{
++  FpDeviceEgis0575 *self = FPI_DEVICE_EGIS0575 (dev);
++
++  if (error)
++    {
++      const char *array_name = "pre-init";
++      if (self->pkt_array == EGIS0575_POST_INIT_PACKETS)
++        array_name = "post-init";
++      else if (self->pkt_array == EGIS0575_REPEAT_PACKETS)
++        array_name = "repeat";
++
++      fp_dbg ("Error occurred at index %d of %s array", self->current_index, array_name);
++      fpi_ssm_mark_failed (transfer->ssm, error);
++
++      g_slist_free_full (self->strips, g_free);
++      self->strips_len = 0;
++      self->strips = NULL;
++      return;
++    }
++
++  if (self->current_index == self->pkt_array_len - 1)
++    {
++      if (self->pkt_array == EGIS0575_REPEAT_PACKETS || self->pkt_array == EGIS0575_POST_INIT_PACKETS)
++        {
++          self->pkt_array = EGIS0575_REPEAT_PACKETS;
++          self->pkt_array_len = EGIS0575_REPEAT_PACKETS_LENGTH;
++          self->current_index = 0;
++
++          save_img (transfer, dev);
++          return;
++        }
++      else
++        {
++          self->pkt_array = EGIS0575_POST_INIT_PACKETS;
++          self->pkt_array_len = EGIS0575_POST_INIT_PACKETS_LENGTH;
++          self->current_index = 0;
++        }
++    }
++  else if (self->pkt_array == EGIS0575_POST_INIT_PACKETS && self->current_index == 1 && transfer->buffer[5] == 0x01)
++    {
++      fp_dbg ("Pre initialization required, switching to pre-init packets");
++      self->pkt_array = EGIS0575_PRE_INIT_PACKETS;
++      self->pkt_array_len = EGIS0575_PRE_INIT_PACKETS_LENGTH;
++      self->current_index = 0;
++    }
++  else
++    {
++      self->current_index += 1;
++    }
++
++  fpi_ssm_jump_to_state (transfer->ssm, SM_REQ);
++}
++
++static void
++recv_resp (FpiSsm *ssm, FpDevice *dev, int response_length)
++{
++  FpiUsbTransfer *transfer = fpi_usb_transfer_new (dev);
++
++  fpi_usb_transfer_fill_bulk (transfer, EGIS0575_EPIN, response_length);
++
++  transfer->ssm = ssm;
++
++  fpi_usb_transfer_submit (transfer, EGIS0575_TIMEOUT, NULL, resp_cb, NULL);
++}
++
++static void
++send_req (FpiSsm *ssm, FpDevice *dev, const Packet *pkt)
++{
++  FpiUsbTransfer *transfer = fpi_usb_transfer_new (dev);
++
++  fpi_usb_transfer_fill_bulk_full (transfer, EGIS0575_EPOUT, pkt->sequence, pkt->length, NULL);
++
++  transfer->ssm = ssm;
++  transfer->short_is_error = TRUE;
++
++  fpi_usb_transfer_submit (transfer, EGIS0575_TIMEOUT, NULL, fpi_ssm_usb_transfer_cb, NULL);
++}
++
++/*
++ * ==================== SSM loopback ====================
++ */
++
++static void
++ssm_run_state (FpiSsm *ssm, FpDevice *dev)
++{
++  FpDeviceEgis0575 *self = FPI_DEVICE_EGIS0575 (dev);
++  FpImageDevice *img_dev = FP_IMAGE_DEVICE (dev);
++
++  switch (fpi_ssm_get_cur_state (ssm))
++    {
++    case SM_INIT:
++      fp_dbg ("Starting capture");
++      self->pkt_array = EGIS0575_POST_INIT_PACKETS;
++      self->pkt_array_len = EGIS0575_POST_INIT_PACKETS_LENGTH;
++      self->current_index = 0;
++
++      self->strips_len = 0;
++      self->strips = NULL;
++      fpi_ssm_next_state (ssm);
++      break;
++
++    case SM_START:
++      if (self->stop)
++        {
++          fp_dbg ("Stopping, completed capture");
++          fpi_ssm_mark_completed (ssm);
++          fpi_image_device_deactivate_complete (img_dev, NULL);
++        }
++      else
++        {
++          fpi_ssm_next_state (ssm);
++        }
++      break;
++
++    case SM_REQ:
++      send_req (ssm, dev, &self->pkt_array[self->current_index]);
++      break;
++
++    case SM_RESP:
++      recv_resp (ssm, dev, self->pkt_array[self->current_index].response_length);
++      break;
++
++    case SM_PROCESS_IMG:
++      process_imgs (ssm, dev);
++      break;
++
++    case SM_DONE:
++      fpi_ssm_jump_to_state (ssm, SM_START);
++      break;
++
++    default:
++      g_assert_not_reached ();
++    }
++}
++
++static void
++loop_complete (FpiSsm *ssm, FpDevice *dev, GError *error)
++{
++  FpImageDevice *img_dev = FP_IMAGE_DEVICE (dev);
++  FpDeviceEgis0575 *self = FPI_DEVICE_EGIS0575 (dev);
++
++  self->running = FALSE;
++
++  if (error)
++    fpi_image_device_session_error (img_dev, error);
++}
++
++/*
++ * ==================== Top-level command callback & meta-data ====================
++ */
++
++static void
++dev_init (FpImageDevice *dev)
++{
++  GError *error = NULL;
++
++  g_usb_device_claim_interface (fpi_device_get_usb_device (FP_DEVICE (dev)), 0, 0, &error);
++
++  fpi_image_device_open_complete (dev, error);
++}
++
++static void
++dev_deinit (FpImageDevice *dev)
++{
++  GError *error = NULL;
++
++  g_usb_device_release_interface (fpi_device_get_usb_device (FP_DEVICE (dev)), 0, 0, &error);
++
++  fpi_image_device_close_complete (dev, error);
++}
++
++static void
++dev_stop (FpImageDevice *dev)
++{
++  FpDeviceEgis0575 *self = FPI_DEVICE_EGIS0575 (dev);
++
++  if (self->running)
++    self->stop = TRUE;
++  else
++    fpi_image_device_deactivate_complete (dev, NULL);
++}
++
++static void
++dev_start (FpImageDevice *dev)
++{
++  FpDeviceEgis0575 *self = FPI_DEVICE_EGIS0575 (dev);
++  FpiSsm *ssm = fpi_ssm_new (FP_DEVICE (dev), ssm_run_state, SM_STATES_NUM);
++
++  self->stop = FALSE;
++
++  fpi_ssm_start (ssm, loop_complete);
++
++  self->running = TRUE;
++
++  fpi_image_device_activate_complete (dev, NULL);
++}
++
++static const FpIdEntry id_table[] = {{
++                                       .vid = 0x1c7a,
++                                       .pid = 0x0575,
++                                     }};
++
++static void
++fpi_device_egis0575_init (FpDeviceEgis0575 *self)
++{
++}
++
++static void
++fpi_device_egis0575_class_init (FpDeviceEgis0575Class *klass)
++{
++  FpDeviceClass *dev_class = FP_DEVICE_CLASS (klass);
++  FpImageDeviceClass *img_class = FP_IMAGE_DEVICE_CLASS (klass);
++
++  dev_class->id = "egis0575";
++  dev_class->full_name = "LighTuning Technology Inc. EgisTec EH575";
++  dev_class->type = FP_DEVICE_TYPE_USB;
++  dev_class->id_table = id_table;
++  dev_class->scan_type = FP_SCAN_TYPE_SWIPE;
++
++  img_class->img_open = dev_init;
++  img_class->img_close = dev_deinit;
++  img_class->activate = dev_start;
++  img_class->deactivate = dev_stop;
++
++  img_class->img_width = EGIS0575_IMGWIDTH;
++  img_class->img_height = -1;
++
++  img_class->bz3_threshold = EGIS0575_BZ3_THRESHOLD;
++}
+diff --git a/libfprint/drivers/egis0575.h b/libfprint/drivers/egis0575.h
+new file mode 100644
+index 0000000..1ab96be
+--- /dev/null
++++ b/libfprint/drivers/egis0575.h
+@@ -0,0 +1,136 @@
++/*
++ * Egis Technology Inc. (aka. LighTuning) 0575 driver for libfprint
++ * Copyright (C) 2021 Animesh Sahu <animeshsahu19@yahoo.com>
++ *
++ * This library is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ *
++ * This library is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with this library; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
++ */
++
++#pragma once
++
++/*
++ * Device data
++ */
++
++#define EGIS0575_CONFIGURATION 1
++#define EGIS0575_INTERFACE 0
++
++/*
++ * Device endpoints
++ */
++
++#define EGIS0575_EPOUT 0x01 /* ( 1 | FPI_USB_ENDPOINT_OUT ) */
++#define EGIS0575_EPIN 0x82  /* ( 2 | FPI_USB_ENDPOINT_IN ) */
++
++/*
++ * Image polling sequences
++ *
++ * First 4 bytes of packet to be sent is "EGIS", rest are unknown but a specific pattern was observed!
++ * First 4 bytes of response is "SIGE"
++ *
++ * Partial sequence usually takes less than half of the sequences to return the image,
++ * in-case it is not available for use, full sequence is going to be redirected after
++ * the resonse to the third packet of partial sequence series.
++ */
++
++typedef struct Packet
++{
++  int            length;
++  unsigned char *sequence;
++
++  int            response_length;
++} Packet;
++
++#define EGIS0575_PRE_INIT_PACKETS_LENGTH 29
++static const Packet EGIS0575_PRE_INIT_PACKETS[] = {
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x60, 0x00, 0x00}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x60, 0x01, 0x00}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x61, 0x0a, 0xfd}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x61, 0x35, 0x02}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x61, 0x80, 0x00}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x60, 0x80, 0x00}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x61, 0x0a, 0xfc}, .response_length = 7},
++  {.length = 9, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x63, 0x01, 0x02, 0x0f, 0x03}, .response_length = 9},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x61, 0x0c, 0x22}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x61, 0x09, 0x83}, .response_length = 7},
++  {.length = 13, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x63, 0x26, 0x06, 0x06, 0x60, 0x06, 0x05, 0x2f, 0x06}, .response_length = 13},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x61, 0x0a, 0xf4}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x61, 0x0c, 0x44}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x61, 0x50, 0x03}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x60, 0x50, 0x03}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x73, 0x14, 0xec}, .response_length = 5356},  /* can vary as size 7 sometimes */
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x60, 0x40, 0xec}, .response_length = 7},
++  {.length = 18, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x63, 0x09, 0x0b, 0x83, 0x24, 0x00, 0x44, 0x0f, 0x08, 0x20, 0x20, 0x01, 0x05, 0x12}, .response_length = 18},
++  {.length = 13, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x63, 0x26, 0x06, 0x06, 0x60, 0x06, 0x05, 0x2f, 0x06}, .response_length = 13},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x61, 0x23, 0x00}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x61, 0x24, 0x33}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x61, 0x20, 0x00}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x61, 0x21, 0x66}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x60, 0x00, 0x66}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x60, 0x01, 0x66}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x60, 0x40, 0x66}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x61, 0x0c, 0x22}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x61, 0x0b, 0x03}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x61, 0x0a, 0xfc}, .response_length = 7},   /* to EGIS0575_POST_INIT_PACKETS */
++};
++
++#define EGIS0575_POST_INIT_PACKETS_LENGTH 18
++static const Packet EGIS0575_POST_INIT_PACKETS[] = {
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x60, 0x00, 0xfc}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x60, 0x01, 0xfc}, .response_length = 7},   /* Change to EGIS0575_PRE_INIT_PACKETS if response == 01:01:01 */
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x60, 0x40, 0xfc}, .response_length = 7},
++  {.length = 18, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x63, 0x09, 0x0b, 0x83, 0x24, 0x00, 0x44, 0x0f, 0x08, 0x20, 0x20, 0x01, 0x05, 0x12}, .response_length = 18},
++  {.length = 13, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x63, 0x26, 0x06, 0x06, 0x60, 0x06, 0x05, 0x2f, 0x06}, .response_length = 13},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x61, 0x23, 0x00}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x61, 0x24, 0x33}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x61, 0x20, 0x00}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x61, 0x21, 0x66}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x60, 0x00, 0x66}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x60, 0x01, 0x66}, .response_length = 7},
++  {.length = 9, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x63, 0x2c, 0x02, 0x00, 0x57}, .response_length = 9},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x60, 0x2d, 0x02}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x62, 0x67, 0x03}, .response_length = 10},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x60, 0x0f, 0x03}, .response_length = 7},
++  {.length = 9, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x63, 0x2c, 0x02, 0x00, 0x13}, .response_length = 9},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x60, 0x00, 0x02}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x64, 0x14, 0xec}, .response_length = 5356},   /* to EGIS0575_REPEAT_PACKETS */
++};
++
++#define EGIS0575_REPEAT_PACKETS_LENGTH 9
++static const Packet EGIS0575_REPEAT_PACKETS[] = {
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x61, 0x2d, 0x20}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x60, 0x00, 0x20}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x60, 0x01, 0x20}, .response_length = 7},
++  {.length = 9, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x63, 0x2c, 0x02, 0x00, 0x57}, .response_length = 9},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x60, 0x2d, 0x02}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x62, 0x67, 0x03}, .response_length = 10},
++  {.length = 9, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x63, 0x2c, 0x02, 0x00, 0x13}, .response_length = 9},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x60, 0x00, 0x02}, .response_length = 7},
++  {.length = 7, .sequence = (unsigned char[]){0x45, 0x47, 0x49, 0x53, 0x64, 0x14, 0xec}, .response_length = 5356},
++};
++
++#define EGIS0575_IMGWIDTH 103
++#define EGIS0575_IMGHEIGHT 52
++#define EGIS0575_IMGSIZE (EGIS0575_IMGWIDTH * EGIS0575_IMGHEIGHT)
++
++#define EGIS0575_BZ3_THRESHOLD 15
++#define EGIS0575_RFMGHEIGHT 24
++#define EGIS0575_RFMDIS (EGIS0575_IMGHEIGHT - EGIS0575_RFMGHEIGHT) / 2
++#define EGIS0575_RESIZE 2
++
++/* Minimum standard deviation required to validate finger is present, usual value roam around 20-50 */
++#define EGIS0575_MIN_SD 18
++#define EGIS0575_TIMEOUT 10000
++
++#define EGIS0575_CONSECUTIVE_CAPTURES 8
+\ No newline at end of file
+diff --git a/libfprint/fprint-list-udev-hwdb.c b/libfprint/fprint-list-udev-hwdb.c
+index ad9cdd0..125c1d3 100644
+--- a/libfprint/fprint-list-udev-hwdb.c
++++ b/libfprint/fprint-list-udev-hwdb.c
+@@ -83,7 +83,6 @@ static const FpIdEntry whitelist_id_table[] = {
+   { .vid = 0x1491, .pid = 0x0088 },
+   { .vid = 0x16d1, .pid = 0x1027 },
+   { .vid = 0x1c7a, .pid = 0x0300 },
+-  { .vid = 0x1c7a, .pid = 0x0575 },
+   { .vid = 0x1c7a, .pid = 0x0576 },
+   { .vid = 0x27c6, .pid = 0x5042 },
+   { .vid = 0x27c6, .pid = 0x5110 },
+diff --git a/libfprint/meson.build b/libfprint/meson.build
+index 25ed10f..2f34fc4 100644
+--- a/libfprint/meson.build
++++ b/libfprint/meson.build
+@@ -119,6 +119,8 @@ driver_sources = {
+         [ 'drivers/etes603.c' ],
+     'egis0570' :
+         [ 'drivers/egis0570.c' ],
++    'egis0575' :
++        [ 'drivers/egis0575.c' ],
+     'vfs0050' :
+         [ 'drivers/vfs0050.c' ],
+     'elan' :
+diff --git a/meson.build b/meson.build
+index c937d28..1e31cac 100644
+--- a/meson.build
++++ b/meson.build
+@@ -114,6 +114,7 @@ default_drivers = [
+     'vfs0050',
+     'etes603',
+     'egis0570',
++    'egis0575',
+     'vcom5s',
+     'synaptics',
+     'elan',
+diff --git a/tests/egis0575/device b/tests/egis0575/device
+new file mode 100644
+index 0000000..08d3e6d
+--- /dev/null
++++ b/tests/egis0575/device
+@@ -0,0 +1,307 @@
++P: /devices/pci0000:00/0000:00:08.1/0000:03:00.4/usb3/3-1
++N: bus/usb/003/002
++E: DEVNAME=/dev/bus/usb/003/002
++E: DEVTYPE=usb_device
++E: DRIVER=usb
++E: PRODUCT=1c7a/575/1072
++E: TYPE=255/0/0
++E: BUSNUM=003
++E: DEVNUM=002
++E: MAJOR=189
++E: MINOR=257
++E: SUBSYSTEM=usb
++E: ID_VENDOR=EgisTec
++E: ID_VENDOR_ENC=EgisTec
++E: ID_VENDOR_ID=1c7a
++E: ID_MODEL=EgisTec_EH575
++E: ID_MODEL_ENC=EgisTec\x20EH575
++E: ID_MODEL_ID=0575
++E: ID_REVISION=1072
++E: ID_SERIAL=EgisTec_EgisTec_EH575_0770EC92
++E: ID_SERIAL_SHORT=0770EC92
++E: ID_BUS=usb
++E: ID_USB_INTERFACES=:ffff00:
++E: ID_VENDOR_FROM_DATABASE=LighTuning Technology Inc.
++E: ID_PATH=pci-0000:03:00.4-usb-0:1
++E: ID_PATH_TAG=pci-0000_03_00_4-usb-0_1
++E: LIBFPRINT_DRIVER=Hardcoded whitelist
++A: authorized=1
++A: avoid_reset_quirk=0
++A: bConfigurationValue=1
++A: bDeviceClass=ff
++A: bDeviceProtocol=00
++A: bDeviceSubClass=00
++A: bMaxPacketSize0=64
++A: bMaxPower=100mA
++A: bNumConfigurations=1
++A: bNumInterfaces= 1
++A: bcdDevice=1072
++A: bmAttributes=a0
++A: busnum=3
++A: configuration=
++H: descriptors=12010002FF0000407A1C750572100102030109022E00010100A0320904000004FFFF000007050102000200070582020002000705830310000807058403100008
++A: dev=189:257
++A: devnum=2
++A: devpath=1
++L: driver=../../../../../../bus/usb/drivers/usb
++A: idProduct=0575
++A: idVendor=1c7a
++A: ltm_capable=no
++A: manufacturer=EgisTec
++A: maxchild=0
++L: port=../3-0:1.0/usb3-port1
++A: power/active_duration=4076
++A: power/async=enabled
++A: power/autosuspend=2
++A: power/autosuspend_delay_ms=2000
++A: power/connected_duration=3089752
++A: power/control=auto
++A: power/level=auto
++A: power/persist=1
++A: power/runtime_active_kids=0
++A: power/runtime_active_time=3799
++A: power/runtime_enabled=enabled
++A: power/runtime_status=suspended
++A: power/runtime_suspended_time=3085678
++A: power/runtime_usage=0
++A: power/wakeup=disabled
++A: power/wakeup_abort_count=
++A: power/wakeup_active=
++A: power/wakeup_active_count=
++A: power/wakeup_count=
++A: power/wakeup_expire_count=
++A: power/wakeup_last_time_ms=
++A: power/wakeup_max_time_ms=
++A: power/wakeup_total_time_ms=
++A: product=EgisTec EH575
++A: quirks=0x0
++A: removable=fixed
++A: rx_lanes=1
++A: serial=0770EC92
++A: speed=480
++A: tx_lanes=1
++A: urbnum=9
++A: version= 2.00
++
++P: /devices/pci0000:00/0000:00:08.1/0000:03:00.4/usb3
++N: bus/usb/003/001=12010002090001406B1D020011050302010109021900010100E0000904000001090000000705810304000C
++E: DEVNAME=/dev/bus/usb/003/001
++E: DEVTYPE=usb_device
++E: DRIVER=usb
++E: PRODUCT=1d6b/2/511
++E: TYPE=9/0/1
++E: BUSNUM=003
++E: DEVNUM=001
++E: MAJOR=189
++E: MINOR=256
++E: SUBSYSTEM=usb
++E: ID_VENDOR=Linux_5.11.0-7614-generic_xhci-hcd
++E: ID_VENDOR_ENC=Linux\x205.11.0-7614-generic\x20xhci-hcd
++E: ID_VENDOR_ID=1d6b
++E: ID_MODEL=xHCI_Host_Controller
++E: ID_MODEL_ENC=xHCI\x20Host\x20Controller
++E: ID_MODEL_ID=0002
++E: ID_REVISION=0511
++E: ID_SERIAL=Linux_5.11.0-7614-generic_xhci-hcd_xHCI_Host_Controller_0000:03:00.4
++E: ID_SERIAL_SHORT=0000:03:00.4
++E: ID_BUS=usb
++E: ID_USB_INTERFACES=:090000:
++E: ID_VENDOR_FROM_DATABASE=Linux Foundation
++E: ID_MODEL_FROM_DATABASE=2.0 root hub
++E: ID_PATH=pci-0000:03:00.4
++E: ID_PATH_TAG=pci-0000_03_00_4
++E: ID_FOR_SEAT=usb-pci-0000_03_00_4
++E: TAGS=:seat:
++A: authorized=1
++A: authorized_default=1
++A: avoid_reset_quirk=0
++A: bConfigurationValue=1
++A: bDeviceClass=09
++A: bDeviceProtocol=01
++A: bDeviceSubClass=00
++A: bMaxPacketSize0=64
++A: bMaxPower=0mA
++A: bNumConfigurations=1
++A: bNumInterfaces= 1
++A: bcdDevice=0511
++A: bmAttributes=e0
++A: busnum=3
++A: configuration=
++H: descriptors=12010002090001406B1D020011050302010109021900010100E0000904000001090000000705810304000C
++A: dev=189:256
++A: devnum=1
++A: devpath=0
++L: driver=../../../../../bus/usb/drivers/usb
++A: idProduct=0002
++A: idVendor=1d6b
++A: interface_authorized_default=1
++A: ltm_capable=no
++A: manufacturer=Linux 5.11.0-7614-generic xhci-hcd
++A: maxchild=4
++A: power/active_duration=3090044
++A: power/async=enabled
++A: power/autosuspend=0
++A: power/autosuspend_delay_ms=0
++A: power/connected_duration=3090044
++A: power/control=auto
++A: power/level=auto
++A: power/runtime_active_kids=1
++A: power/runtime_active_time=3089979
++A: power/runtime_enabled=enabled
++A: power/runtime_status=active
++A: power/runtime_suspended_time=0
++A: power/runtime_usage=0
++A: power/wakeup=disabled
++A: power/wakeup_abort_count=
++A: power/wakeup_active=
++A: power/wakeup_active_count=
++A: power/wakeup_count=
++A: power/wakeup_expire_count=
++A: power/wakeup_last_time_ms=
++A: power/wakeup_max_time_ms=
++A: power/wakeup_total_time_ms=
++A: product=xHCI Host Controller
++A: quirks=0x0
++A: removable=unknown
++A: rx_lanes=1
++A: serial=0000:03:00.4
++A: speed=480
++A: tx_lanes=1
++A: urbnum=37
++A: version= 2.00
++
++P: /devices/pci0000:00/0000:00:08.1/0000:03:00.4
++E: DRIVER=xhci_hcd
++E: PCI_CLASS=C0330
++E: PCI_ID=1022:1639
++E: PCI_SUBSYS_ID=1025:142B
++E: PCI_SLOT_NAME=0000:03:00.4
++E: MODALIAS=pci:v00001022d00001639sv00001025sd0000142Bbc0Csc03i30
++E: SUBSYSTEM=pci
++E: ID_PCI_CLASS_FROM_DATABASE=Serial bus controller
++E: ID_PCI_SUBCLASS_FROM_DATABASE=USB controller
++E: ID_PCI_INTERFACE_FROM_DATABASE=XHCI
++E: ID_VENDOR_FROM_DATABASE=Advanced Micro Devices, Inc. [AMD]
++E: ID_MODEL_FROM_DATABASE=Renoir USB 3.1
++A: ari_enabled=0
++A: broken_parity_status=0
++A: class=0x0c0330
++H: config=22103916070410000030030C10008000040030C000000000000000000000000000000000000000000000000025102B14000000004800000000000000FF010000
++A: consistent_dma_mask_bits=64
++A: current_link_speed=16.0 GT/s PCIe
++A: current_link_width=16
++A: d3cold_allowed=1
++A: dbc=disabled
++A: device=0x1639
++A: dma_mask_bits=64
++L: driver=../../../../bus/pci/drivers/xhci_hcd
++A: driver_override=(null)
++A: enable=1
++L: iommu=../../0000:00:00.2/iommu/ivhd0
++L: iommu_group=../../../../kernel/iommu_groups/4
++A: irq=47
++A: link/l0s_aspm=0
++A: link/l1_aspm=0
++A: local_cpulist=0-5
++A: local_cpus=003f
++A: max_link_speed=16.0 GT/s PCIe
++A: max_link_width=16
++A: modalias=pci:v00001022d00001639sv00001025sd0000142Bbc0Csc03i30
++A: msi_bus=1
++A: msi_irqs/48=msix
++A: msi_irqs/49=msix
++A: msi_irqs/50=msix
++A: msi_irqs/51=msix
++A: msi_irqs/52=msix
++A: msi_irqs/53=msix
++A: msi_irqs/54=msix
++A: numa_node=-1
++A: pools=poolinfo - 0.1\nbuffer-2048         0    0 2048  0\nbuffer-512          0    0  512  0\nbuffer-128          0    0  128  0\nbuffer-32           0    0   32  0\nxHCI 1KB stream ctx arrays    0    0 1024  0\nxHCI 256 byte stream ctx arrays    0    0  256  0\nxHCI input/output contexts    5    6 2112  6\nxHCI ring segments   20   20 4096 20\nbuffer-2048         0    0 2048  0\nbuffer-512          0    0  512  0\nbuffer-128          3   32  128  1\nbuffer-32           0    0   32  0
++A: power/async=enabled
++A: power/control=auto
++A: power/runtime_active_kids=1
++A: power/runtime_active_time=3090697
++A: power/runtime_enabled=enabled
++A: power/runtime_status=active
++A: power/runtime_suspended_time=0
++A: power/runtime_usage=0
++A: power/wakeup=enabled
++A: power/wakeup_abort_count=0
++A: power/wakeup_active=0
++A: power/wakeup_active_count=0
++A: power/wakeup_count=0
++A: power/wakeup_expire_count=0
++A: power/wakeup_last_time_ms=0
++A: power/wakeup_max_time_ms=0
++A: power/wakeup_total_time_ms=0
++A: power_state=D0
++A: resource=0x00000000c0300000 0x00000000c03fffff 0x0000000000140204\n0x0000000000000000 0x0000000000000000 0x0000000000000000\n0x0000000000000000 0x0000000000000000 0x0000000000000000\n0x0000000000000000 0x0000000000000000 0x0000000000000000\n0x0000000000000000 0x0000000000000000 0x0000000000000000\n0x0000000000000000 0x0000000000000000 0x0000000000000000\n0x0000000000000000 0x0000000000000000 0x0000000000000000\n0x0000000000000000 0x0000000000000000 0x0000000000000000\n0x0000000000000000 0x0000000000000000 0x0000000000000000\n0x0000000000000000 0x0000000000000000 0x0000000000000000\n0x0000000000000000 0x0000000000000000 0x0000000000000000\n0x0000000000000000 0x0000000000000000 0x0000000000000000\n0x0000000000000000 0x0000000000000000 0x0000000000000000
++A: revision=0x00
++A: subsystem_device=0x142b
++A: subsystem_vendor=0x1025
++A: vendor=0x1022
++
++P: /devices/pci0000:00/0000:00:08.1
++E: DRIVER=pcieport
++E: PCI_CLASS=60400
++E: PCI_ID=1022:1635
++E: PCI_SUBSYS_ID=1022:1635
++E: PCI_SLOT_NAME=0000:00:08.1
++E: MODALIAS=pci:v00001022d00001635sv00001022sd00001635bc06sc04i00
++E: SUBSYSTEM=pci
++E: ID_PCI_CLASS_FROM_DATABASE=Bridge
++E: ID_PCI_SUBCLASS_FROM_DATABASE=PCI bridge
++E: ID_PCI_INTERFACE_FROM_DATABASE=Normal decode
++E: ID_VENDOR_FROM_DATABASE=Advanced Micro Devices, Inc. [AMD]
++E: ID_MODEL_FROM_DATABASE=Renoir Internal PCIe GPP Bridge to Bus
++A: ari_enabled=0
++A: broken_parity_status=0
++A: class=0x060400
++H: config=221035160704100000000406100081000000000000000000000303001111000030C060C001B011C00000000000000000000000005000000000000000FF010200
++A: consistent_dma_mask_bits=32
++A: current_link_speed=16.0 GT/s PCIe
++A: current_link_width=16
++A: d3cold_allowed=1
++A: device=0x1635
++A: dma_mask_bits=32
++L: driver=../../../bus/pci/drivers/pcieport
++A: driver_override=(null)
++A: enable=2
++L: iommu=../0000:00:00.2/iommu/ivhd0
++L: iommu_group=../../../kernel/iommu_groups/4
++A: irq=36
++A: local_cpulist=0-5
++A: local_cpus=003f
++A: max_link_speed=16.0 GT/s PCIe
++A: max_link_width=16
++A: modalias=pci:v00001022d00001635sv00001022sd00001635bc06sc04i00
++A: msi_bus=1
++A: msi_irqs/36=msi
++A: numa_node=-1
++A: power/async=enabled
++A: power/autosuspend_delay_ms=100
++A: power/control=auto
++A: power/runtime_active_kids=3
++A: power/runtime_active_time=3090703
++A: power/runtime_enabled=enabled
++A: power/runtime_status=active
++A: power/runtime_suspended_time=0
++A: power/runtime_usage=0
++A: power/wakeup=enabled
++A: power/wakeup_abort_count=0
++A: power/wakeup_active=0
++A: power/wakeup_active_count=0
++A: power/wakeup_count=0
++A: power/wakeup_expire_count=0
++A: power/wakeup_last_time_ms=0
++A: power/wakeup_max_time_ms=0
++A: power/wakeup_total_time_ms=0
++A: power_state=D0
++A: resource=0x0000000000000000 0x0000000000000000 0x0000000000000000\n0x0000000000000000 0x0000000000000000 0x0000000000000000\n0x0000000000000000 0x0000000000000000 0x0000000000000000\n0x0000000000000000 0x0000000000000000 0x0000000000000000\n0x0000000000000000 0x0000000000000000 0x0000000000000000\n0x0000000000000000 0x0000000000000000 0x0000000000000000\n0x0000000000000000 0x0000000000000000 0x0000000000000000\n0x0000000000000000 0x0000000000000000 0x0000000000000000\n0x0000000000000000 0x0000000000000000 0x0000000000000000\n0x0000000000000000 0x0000000000000000 0x0000000000000000\n0x0000000000000000 0x0000000000000000 0x0000000000000000\n0x0000000000000000 0x0000000000000000 0x0000000000000000\n0x0000000000000000 0x0000000000000000 0x0000000000000000\n0x0000000000001000 0x0000000000001fff 0x0000000000000101\n0x00000000c0300000 0x00000000c06fffff 0x0000000000000200\n0x00000000b0000000 0x00000000c01fffff 0x0000000000102201\n0x0000000000000000 0x0000000000000000 0x0000000000000000
++A: revision=0x00
++A: secondary_bus_number=3
++A: subordinate_bus_number=3
++A: subsystem_device=0x1635
++A: subsystem_vendor=0x1022
++A: vendor=0x1022
++

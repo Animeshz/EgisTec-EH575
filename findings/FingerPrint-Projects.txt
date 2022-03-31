@@ -1,0 +1,60 @@
+linux - Using BioAPI to convert and compare two finger print bitmap images - Stack Overflow
+https://stackoverflow.com/questions/10524700/using-bioapi-to-convert-and-compare-two-finger-print-bitmap-images
+
+ethiery/FuFengprint-Matcher: An efficient C implementation of the Minutia-Based fingerprint matching algorithm proposed by Xiang-Fu and Jufu Feng in "Minutia Tensor Matrix: A New Strategy for Fingerprint Matching" 2015
+https://github.com/ethiery/FuFengprint-Matcher
+
+tudoriliuta/FingerMatch: Minutiae-based fingerprint matching implementation
+https://github.com/tudoriliuta/FingerMatch
+
+Utkarsh-Deshmukh/Fingerprint-Feature-Extraction: Extract minutiae features from fingerprint images
+https://github.com/Utkarsh-Deshmukh/Fingerprint-Feature-Extraction
+
+cuevas1208/fingerprint_recognition: An implementations of fingerprint recognition algorithm
+https://github.com/cuevas1208/fingerprint_recognition
+
+robertvazan/sourceafis-java: Fingerprint recognition engine for Java that takes a pair of human fingerprint images and returns their similarity score. Supports efficient 1:N search.
+https://github.com/robertvazan/sourceafis-java
+
+ayaskovets/pyfnprint: fingerprint recognition library written in Python3
+https://github.com/ayaskovets/pyfnprint
+
+ivonajdenkoska/fingerprint-recognition: Fingerprints identification and authentication scenarios - as part of the Biometrics System Concepts course @ KU Leuven
+https://github.com/ivonajdenkoska/fingerprint-recognition
+
+FP_Tutorial.pdf
+https://cedar.buffalo.edu/~govind/CSE666/fall2007/FP_Tutorial.pdf
+
+How SourceAFIS algorithm works - SourceAFIS
+https://sourceafis.machinezoo.com/algorithm
+
+An Efficient Fingerprint Matching System for Low Quality Images
+https://www.ijcaonline.org/volume26/number4/pxc3874246.pdf
+
+mehmetaydar/fingerprint-alignment: Fingerprint enhancement, minutiaes extraction, core point detection, alignment of minutiaes based on core point.
+https://github.com/mehmetaydar/fingerprint-alignment
+
+matlab - How to obtain a gaussian filter in python - Stack Overflow
+https://stackoverflow.com/questions/17190649/how-to-obtain-a-gaussian-filter-in-python
+
+(PDF) Fingerprint matching algorithm for poor quality images
+https://www.researchgate.net/publication/277632903_Fingerprint_matching_algorithm_for_poor_quality_images
+
+234644554.pdf
+https://core.ac.uk/download/pdf/234644554.pdf
+
+(PDF) Analysis of Fingerprint Minutiae to form Fingerprint Identifier
+https://www.researchgate.net/publication/339290477_Analysis_of_Fingerprint_Minutiae_to_form_Fingerprint_Identifier
+
+download
+https://lup.lub.lu.se/luur/download?func=downloadFile&recordOId=8918315&fileOId=8918325
+
+11013676.pdf
+https://core.ac.uk/download/pdf/11013676.pdf
+
+Microsoft Word - 09. ICBB 01
+https://airccj.org/CSCP/vol7/csit76809.pdf
+
+what is binarization of a fingerprint - Google Search
+https://www.google.com/search?q=what+is+binarization+of+a+fingerprint&source=lmns&bih=754&biw=1536&hl=en&sa=X&ved=2ahUKEwjuxcLr85TxAhUqhksFHXt6DbUQ_AUoAHoECAEQAA
+

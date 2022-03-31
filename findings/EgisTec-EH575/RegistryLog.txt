@@ -1,0 +1,7 @@
+Sensor:
+HKEY_LOCAL_MACHINE\SOFTWARE\EgisSDKDBG\DisplayFlag -> 0x2        (DWORD)
+HKEY_LOCAL_MACHINE\SOFTWARE\EgisSDKDBG\EnableBlock -> 0xffffffff (DWORD)
+
+Engine:
+SYSTEM\CurrentControlSet\Enum\%s\Device Parameters -> ???
+EgisFP\FPParameters -> ???

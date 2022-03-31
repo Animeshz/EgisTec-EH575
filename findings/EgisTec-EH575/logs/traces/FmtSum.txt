@@ -1,0 +1,12 @@
+Files Processed:
+	C:\Users\Animesh\Desktop\Extras\ReverseEngineering\EgisTec EH575\logs\traces\LogFile.Etl
+Total Buffers Processed 1
+Total Events  Processed 2
+Total Events  Lost      0
+Total Format  Errors    0
+Total Formats Unknown   0
+Elapsed Time            19 sec
++-----------------------------------------------------------------------------------+
+|EventCount    EventName            EventType   TMF                                 |
++-----------------------------------------------------------------------------------+
++-----------------------------------------------------------------------------------+

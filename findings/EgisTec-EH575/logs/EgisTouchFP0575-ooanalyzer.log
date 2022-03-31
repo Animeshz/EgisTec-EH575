@@ -1,0 +1,312 @@
+[200~    /mnt/c/Users/Animesh/Desktop/Extras/ReverseEngineering/EgisTec EH575/drivers ··················· 12:58:46 PM 
+❯ docker run --rm -it -v ${PWD}:/work seipharos/pharos
+root@2de7f417a35b:/# cd work
+root@2de7f417a35b:/work# ls
+EgisTouchFP0575.dll  EgisTouchFPEngine0575.dll  EgisTouchFPSensor0575.dll  EgisTouchFPSensor0575.dll.rzdb
+root@2de7f417a35b:/work# ooanalyzer --json=${PWD}/output.json EgisTouchFP0575.dll
+OPTI[INFO ]: Analyzing executable: EgisTouchFP0575.dll
+OPTI[INFO ]: OOAnalyzer version 1.0.
+OPTI[WARN ]: Non 32-bit Windows PE support is still highly experimental for this tool!
+OOAN[FATAL]: Please specify --allow-64bit to allow the analysis of 64-bit executables.
+root@2de7f417a35b:/work# echo ${PWD}/output.json
+/work/output.json
+root@2de7f417a35b:/work# ooanalyzer --json=${PWD}/output.json EgisTouchFP0575.dll --allow-64bit
+OPTI[INFO ]: Analyzing executable: EgisTouchFP0575.dll
+OPTI[INFO ]: OOAnalyzer version 1.0.
+OPTI[WARN ]: Non 32-bit Windows PE support is still highly experimental for this tool!
+OPTI[INFO ]: ROSE stock partitioning took 18.8786 seconds.
+OPTI[INFO ]: Partitioned 32758 bytes, 8302 instructions, 2672 basic blocks, 1 data blocks and 330 functions.
+OPTI[INFO ]: Pharos function partitioning took 116.206 seconds.
+OPTI[INFO ]: Partitioned 209301 bytes, 52943 instructions, 14337 basic blocks, 731 data blocks and 1083 functions.
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetTraceEnableFlags
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function RegDeleteValueW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function RegOpenKeyExW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function RegQueryValueExW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function RegDeleteKeyValueW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function RegSetKeyValueW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function RegisterTraceGuidsW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function UnregisterTraceGuids
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function TraceMessage
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function RegCloseKey
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetTraceEnableLevel
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetTraceLoggerHandle
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function CreateCompatibleDC
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function DeleteObject
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetPixel
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function SelectObject
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function CreateDIBSection
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function SetDIBColorTable
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function DeleteDC
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetObjectW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function lstrlenW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function LocalSize
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function OutputDebugStringW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function Sleep
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function TlsGetValue
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function TlsAlloc
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function TlsSetValue
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function TlsFree
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetTickCount64
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function EncodePointer
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function HeapAlloc
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function HeapReAlloc
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function HeapFree
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function HeapSize
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetProcessHeap
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function DisableThreadLibraryCalls
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function DebugBreak
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetThreadId
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetTickCount
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function LocalReAlloc
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function lstrcpyW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function LoadResource
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function LockResource
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function SizeofResource
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function FindResourceW
+APID[WARN ]: API database could not find function VerSetConditionMask in KERNEL32
+OOAN[WARN ]: No stack delta information for: KERNEL32.dll:VerSetConditionMask
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function VerifyVersionInfoW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetSystemTime
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function SystemTimeToFileTime
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function WTSGetActiveConsoleSessionId
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function WaitForMultipleObjects
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function LocalFree
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function LocalAlloc
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetSystemDirectoryW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetLocalTime
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function CreateThread
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function CreateEventW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function WaitForSingleObject
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function ResetEvent
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function SetEvent
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function DeleteCriticalSection
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function InitializeCriticalSectionEx
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function LeaveCriticalSection
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function FlushFileBuffers
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function WriteConsoleW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function SetStdHandle
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetStringTypeW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function SetFilePointerEx
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetConsoleMode
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetConsoleCP
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function LCMapStringW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function EnterCriticalSection
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function InitializeCriticalSection
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetLastError
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function RaiseException
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function CloseHandle
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function DecodePointer
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function WriteFile
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetSystemTimeAsFileTime
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function CreateFileW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function LoadLibraryExW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetCPInfo
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetOEMCP
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetSystemFirmwareTable
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetACP
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function IsValidCodePage
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetModuleFileNameW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetModuleHandleW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function TerminateProcess
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetCurrentProcess
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function InitializeCriticalSectionAndSpinCount
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function SetUnhandledExceptionFilter
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function UnhandledExceptionFilter
+APID[WARN ]: API database could not find function RtlVirtualUnwind in KERNEL32
+OOAN[WARN ]: No stack delta information for: KERNEL32.dll:RtlVirtualUnwind
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function RtlCaptureContext
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function FreeEnvironmentStringsW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetEnvironmentStringsW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetCurrentProcessId
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function QueryPerformanceCounter
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetModuleFileNameA
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetStartupInfoW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetFileType
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetStdHandle
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function WideCharToMultiByte
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function MultiByteToWideChar
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetProcAddress
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetModuleHandleExW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function ExitProcess
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function SetLastError
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function VirtualQuery
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function VirtualProtect
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function VirtualAlloc
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetSystemInfo
+APID[WARN ]: API database could not find function RtlUnwindEx in KERNEL32
+OOAN[WARN ]: No stack delta information for: KERNEL32.dll:RtlUnwindEx
+APID[WARN ]: API database could not find function RtlLookupFunctionEntry in KERNEL32
+OOAN[WARN ]: No stack delta information for: KERNEL32.dll:RtlLookupFunctionEntry
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function RtlPcToFileHeader
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetCommandLineA
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function GetCurrentThreadId
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function IsDebuggerPresent
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function IsProcessorFeaturePresent
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function PathFileExistsW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function StrStrIW
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function StrCmpIW
+APID[WARN ]: API database could not find function wsprintfW in USER32
+OOAN[WARN ]: No stack delta information for: USER32.dll:wsprintfW
+APID[WARN ]: API database has no data for DLL: WTSAPI32
+OOAN[WARN ]: No stack delta information for: WTSAPI32.dll:WTSQuerySessionInformationW
+OOAN[WARN ]: No stack delta information for: WTSAPI32.dll:WTSFreeMemory
+APID[WARN ]: API database has no data for DLL: bcrypt
+OOAN[WARN ]: No stack delta information for: bcrypt.dll:BCryptDestroySecret
+OOAN[WARN ]: No stack delta information for: bcrypt.dll:BCryptVerifySignature
+OOAN[WARN ]: No stack delta information for: bcrypt.dll:BCryptGenerateSymmetricKey
+OOAN[WARN ]: No stack delta information for: bcrypt.dll:BCryptFinishHash
+OOAN[WARN ]: No stack delta information for: bcrypt.dll:BCryptCloseAlgorithmProvider
+OOAN[WARN ]: No stack delta information for: bcrypt.dll:BCryptSetProperty
+OOAN[WARN ]: No stack delta information for: bcrypt.dll:BCryptDestroyHash
+OOAN[WARN ]: No stack delta information for: bcrypt.dll:BCryptOpenAlgorithmProvider
+OOAN[WARN ]: No stack delta information for: bcrypt.dll:BCryptGenRandom
+OOAN[WARN ]: No stack delta information for: bcrypt.dll:BCryptEncrypt
+OOAN[WARN ]: No stack delta information for: bcrypt.dll:BCryptDecrypt
+OOAN[WARN ]: No stack delta information for: bcrypt.dll:BCryptGenerateKeyPair
+OOAN[WARN ]: No stack delta information for: bcrypt.dll:BCryptFinalizeKeyPair
+OOAN[WARN ]: No stack delta information for: bcrypt.dll:BCryptExportKey
+OOAN[WARN ]: No stack delta information for: bcrypt.dll:BCryptImportKeyPair
+OOAN[WARN ]: No stack delta information for: bcrypt.dll:BCryptSecretAgreement
+OOAN[WARN ]: No stack delta information for: bcrypt.dll:BCryptDestroyKey
+OOAN[WARN ]: No stack delta information for: bcrypt.dll:BCryptSignHash
+OOAN[WARN ]: No stack delta information for: bcrypt.dll:BCryptCreateHash
+OOAN[WARN ]: No stack delta information for: bcrypt.dll:BCryptDeriveKey
+OOAN[WARN ]: No stack delta information for: bcrypt.dll:BCryptHashData
+APID[WARN ]: API database has no data for DLL: gdiplus
+OOAN[WARN ]: No stack delta information for: gdiplus.dll:GdipGetImagePalette
+OOAN[WARN ]: No stack delta information for: gdiplus.dll:GdipGetImageHeight
+OOAN[WARN ]: No stack delta information for: gdiplus.dll:GdipGetImageWidth
+OOAN[WARN ]: No stack delta information for: gdiplus.dll:GdipGetImageGraphicsContext
+OOAN[WARN ]: No stack delta information for: gdiplus.dll:GdipDisposeImage
+OOAN[WARN ]: No stack delta information for: gdiplus.dll:GdipCloneImage
+OOAN[WARN ]: No stack delta information for: gdiplus.dll:GdiplusStartup
+OOAN[WARN ]: No stack delta information for: gdiplus.dll:GdipFree
+OOAN[WARN ]: No stack delta information for: gdiplus.dll:GdipAlloc
+OOAN[WARN ]: No stack delta information for: gdiplus.dll:GdiplusShutdown
+OOAN[WARN ]: No stack delta information for: gdiplus.dll:GdipGetImagePaletteSize
+OOAN[WARN ]: No stack delta information for: gdiplus.dll:GdipCreateBitmapFromFile
+OOAN[WARN ]: No stack delta information for: gdiplus.dll:GdipCreateBitmapFromScan0
+OOAN[WARN ]: No stack delta information for: gdiplus.dll:GdipBitmapLockBits
+OOAN[WARN ]: No stack delta information for: gdiplus.dll:GdipBitmapUnlockBits
+OOAN[WARN ]: No stack delta information for: gdiplus.dll:GdipDeleteGraphics
+OOAN[WARN ]: No stack delta information for: gdiplus.dll:GdipDrawImageI
+OOAN[WARN ]: No stack delta information for: gdiplus.dll:GdipGetImagePixelFormat
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function CoCreateInstance
+OOAN[WARN ]: Unrecognized 64-bit calling convention: __stdcall for function PropVariantClear
+OOAN[WARN ]: Unable to find this-pointer for function at 0x180006380
+FSEM[ERROR]: Analysis of function 0x18001F960 failed: relative memory exceeded
+FSEM[ERROR]: Analysis of function 0x180020DA0 failed: relative memory exceeded
+FSEM[ERROR]: Analysis of function 0x180016C70 failed: relative memory exceeded
+FSEM[ERROR]: Analysis of function 0x18000AF10 failed: relative CPU time exceeded; adjust with --per-function-timeout
+FSEM[ERROR]: Analysis of function 0x18002AFC0 failed: relative memory exceeded
+FSEM[ERROR]: Analysis of function 0x18002BAF4 failed: relative memory exceeded
+OOAN[ERROR]: No new() methods were found.  Heap objects may not be detected.
+OOAN[ERROR]: No delete() methods were found.  Object analysis may be impaired.
+PLOG[WARN ]: failed.
+PLOG[WARN ]: Consistency checks failed.
+PLOG[WARN ]: Contradictory information about constructor: factConstructor(0x18001ccf0) but reasonNOTConstructor(0x18001ccf0)
+PLOG[WARN ]: Constraint checks failed, retracting guess!
+PLOG[WARN ]: failed.
+PLOG[WARN ]: Consistency checks failed.
+PLOG[WARN ]: Contradictory information about constructor: factConstructor(0x18000d650) but reasonNOTConstructor(0x18000d650)
+PLOG[WARN ]: Constraint checks failed, retracting guess!
+PLOG[WARN ]: failed.
+PLOG[WARN ]: Consistency checks failed.
+PLOG[WARN ]: Contradictory information about merging classes: Method1=0x180044fd8 Method2=0x180020cd0
+PLOG[WARN ]: Constraint checks failed, retracting guess!
+PLOG[WARN ]: failed.
+PLOG[WARN ]: Consistency checks failed.
+PLOG[WARN ]: Contradictory information about merging classes: Method1=0x180044fd8 Method2=0x18001cd80
+PLOG[WARN ]: Constraint checks failed, retracting guess!
+PLOG[WARN ]: failed.
+PLOG[WARN ]: Consistency checks failed.
+PLOG[WARN ]: Contradictory information about constructor: factConstructor(0x18001ccf0) but reasonNOTConstructor(0x18001ccf0)
+PLOG[WARN ]: Constraint checks failed, retracting guess!
+PLOG[WARN ]: failed.
+PLOG[WARN ]: Consistency checks failed.
+PLOG[WARN ]: Contradictory information about merging classes: Method1=0x1800452f8 Method2=0x180020cd0
+PLOG[WARN ]: Constraint checks failed, retracting guess!
+PLOG[WARN ]: failed.
+PLOG[WARN ]: Consistency checks failed.
+PLOG[WARN ]: Contradictory information about constructor: factConstructor(0x18000d650) but reasonNOTConstructor(0x18000d650)
+PLOG[WARN ]: Constraint checks failed, retracting guess!
+PLOG[WARN ]: failed.
+PLOG[WARN ]: Consistency checks failed.
+PLOG[WARN ]: Contradictory information about merging classes: Method1=0x180044688 Method2=0x180020cd0
+PLOG[WARN ]: Constraint checks failed, retracting guess!
+PLOG[WARN ]: failed.
+PLOG[WARN ]: Consistency checks failed.
+PLOG[WARN ]: Contradictory information about constructor: factConstructor(0x180018a10) but reasonNOTConstructor(0x180018a10)
+PLOG[WARN ]: Constraint checks failed, retracting guess!
+PLOG[WARN ]: failed.
+PLOG[WARN ]: Consistency checks failed.
+PLOG[WARN ]: Contradictory information about constructor: factConstructor(0x180018a10) but reasonNOTConstructor(0x180018a10)
+PLOG[WARN ]: Constraint checks failed, retracting guess!
+PLOG[WARN ]: failed.
+PLOG[WARN ]: Consistency checks failed.
+PLOG[WARN ]: Contradictory information about constructor: factConstructor(0x180018a10) but reasonNOTConstructor(0x180018a10)
+PLOG[WARN ]: Constraint checks failed, retracting guess!
+PLOG[WARN ]: failed.
+PLOG[WARN ]: Consistency checks failed.
+PLOG[WARN ]: Contradictory information about constructor: factConstructor(0x180018a10) but reasonNOTConstructor(0x180018a10)
+PLOG[WARN ]: Constraint checks failed, retracting guess!
+PLOG[WARN ]: failed.
+PLOG[WARN ]: Consistency checks failed.
+PLOG[WARN ]: Contradictory information about constructor: factConstructor(0x180018a10) but reasonNOTConstructor(0x180018a10)
+PLOG[WARN ]: Constraint checks failed, retracting guess!
+PLOG[WARN ]: failed.
+PLOG[WARN ]: Consistency checks failed.
+PLOG[WARN ]: Contradictory information about constructor: factConstructor(0x180018a10) but reasonNOTConstructor(0x180018a10)
+PLOG[WARN ]: Constraint checks failed, retracting guess!
+PLOG[WARN ]: failed.
+PLOG[WARN ]: Consistency checks failed.
+PLOG[WARN ]: Contradictory information about constructor: factConstructor(0x180018a10) but reasonNOTConstructor(0x180018a10)
+PLOG[WARN ]: Constraint checks failed, retracting guess!
+PLOG[WARN ]: failed.
+PLOG[WARN ]: Consistency checks failed.
+PLOG[WARN ]: Contradictory information about constructor: factConstructor(0x180018a10) but reasonNOTConstructor(0x180018a10)
+PLOG[WARN ]: Constraint checks failed, retracting guess!
+PLOG[WARN ]: failed.
+PLOG[WARN ]: Consistency checks failed.
+PLOG[WARN ]: Contradictory information about constructor: factConstructor(0x180018a10) but reasonNOTConstructor(0x180018a10)
+PLOG[WARN ]: Constraint checks failed, retracting guess!
+PLOG[WARN ]: failed.
+PLOG[WARN ]: Consistency checks failed.
+PLOG[WARN ]: Contradictory information about merging classes: Method1=0x180044688 Method2=0x180045ae8
+PLOG[WARN ]: Constraint checks failed, retracting guess!
+PLOG[WARN ]: failed.
+PLOG[WARN ]: Consistency checks failed.
+PLOG[WARN ]: Contradictory information about merging classes: Method1=0x180044688 Method2=0x180045ae8
+PLOG[WARN ]: Constraint checks failed, retracting guess!
+PLOG[WARN ]: failed.
+PLOG[WARN ]: Consistency checks failed.
+PLOG[WARN ]: Contradictory information about merging classes: Method1=0x180044688 Method2=0x180045ae8
+PLOG[WARN ]: Constraint checks failed, retracting guess!
+PLOG[WARN ]: failed.
+PLOG[WARN ]: Consistency checks failed.
+PLOG[WARN ]: Contradictory information about merging classes: Method1=0x180044688 Method2=0x180045ae8
+PLOG[WARN ]: Constraint checks failed, retracting guess!
+PLOG[WARN ]: failed.
+PLOG[WARN ]: Consistency checks failed.
+PLOG[WARN ]: Contradictory information about merging classes: Method1=0x180044688 Method2=0x180045ae8
+PLOG[WARN ]: Constraint checks failed, retracting guess!
+PLOG[WARN ]: failed.
+PLOG[WARN ]: Consistency checks failed.
+PLOG[WARN ]: Contradictory information about merging classes: Method1=0x180020cd0 Method2=0x180045650
+PLOG[WARN ]: Constraint checks failed, retracting guess!
+PLOG[WARN ]: failed.
+PLOG[WARN ]: Consistency checks failed.
+PLOG[WARN ]: Contradictory information about merging classes: Method1=0x180020cd0 Method2=0x180045650
+PLOG[WARN ]: Constraint checks failed, retracting guess!
+PLOG[WARN ]: failed.
+PLOG[WARN ]: Consistency checks failed.
+PLOG[WARN ]: Contradictory information about merging classes: Method1=0x180020cd0 Method2=0x180045650
+PLOG[WARN ]: Constraint checks failed, retracting guess!
+OOAN[ERROR]: Method address 0x18000DCC0 was not a function or import.
+OOAN[ERROR]: Method address 0x180025194 was not a function or import.
+OPTI[INFO ]: OOAnalyzer analysis complete, found: 20 classes, 56 methods, 0 virtual calls, and 198 usage instructions.
+OPTI[INFO ]: OOAnalyzer analysis complete.
+root@2de7f417a35b:/work# ls
+EgisTouchFP0575.dll  EgisTouchFPEngine0575.dll  EgisTouchFPSensor0575.dll  EgisTouchFPSensor0575.dll.rzdb  output.json
+root@2de7f417a35b:/work# exit
+exit

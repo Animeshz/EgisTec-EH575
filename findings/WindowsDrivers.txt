@@ -1,0 +1,12 @@
+UMDF (User Mode Drivers) - .dll
+Kernel Mode Drivers - .sys
+
+
+
+EgisTec Biometric Touch Fingerprint Sensor:
+C:\Windows\System32\drivers\UMDF\EgisTouchFP0575.dll
+C:\Windows\System32\WinBioPlugIns\EgisTouchFPEngine0575.dll
+C:\Windows\System32\WinBioPlugIns\EgisTouchFPSensor0575.dll
+
+C:\Windows\System32\drivers\winusb.sys - https://docs.microsoft.com/en-us/windows-hardware/drivers/usbcon/winusb
+C:\Windows\System32\drivers\WUDFRd.sys - WUDFRd.sys is a Universal Disk Format (UDF) file system driver that Windows uses to read CDs/DVDs formatted as UDF (https://answers.microsoft.com/en-us/windows/forum/all/what-device-does-these-drivers-support-wudfrdsys/ee3ac38a-5fb1-409b-94d3-1aaac4629145) and The reflector redirects IRPs received from the I/O manager to the client driver host process. Upon receiving the request, the framework and the client driver handle the request (https://docs.microsoft.com/en-us/windows-hardware/drivers/usbcon/implement-driver-entry-for-a-usb-driver--umdf-)
